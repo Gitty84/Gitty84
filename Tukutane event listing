@@ -1,0 +1,90 @@
+// Full React Native Code for Event Listing Screen with Firebase
+
+import React, { useEffect, useState } from 'react';
+import { View, Text, FlatList, Image, Button, TouchableOpacity, StyleSheet } from 'react-native';
+import firestore from '@react-native-firebase/firestore';
+import AddCalendarEvent from 'react-native-add-calendar-event';
+
+export default function EventListScreen() {
+  const [events, setEvents] = useState([]);
+  const [filter, setFilter] = useState('All');
+
+  useEffect(() => {
+    fetchEvents();
+  }, [filter]);
+
+  const fetchEvents = async () => {
+    let query = firestore().collection('events');
+    if (filter !== 'All') {
+      query = query.where('category', '==', filter);
+    }
+    const snapshot = await query.get();
+    const eventData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    setEvents(eventData);
+  };
+
+  const addToCalendar = (event) => {
+    const eventConfig = {
+      title: event.name,
+      startDate: new Date(event.date).toISOString(),
+      endDate: new Date(event.date).toISOString(),
+      location: event.location,
+      notes: `Category: ${event.category}`,
+    };
+
+    AddCalendarEvent.presentEventCreatingDialog(eventConfig)
+      .then(eventInfo => {
+        console.log('Event added to calendar:', eventInfo);
+      })
+      .catch(error => {
+        console.error('Calendar Error:', error);
+      });
+  };
+
+  const RSVP = (event) => {
+    alert(`You RSVP'd for ${event.name}`);
+  };
+
+  const renderItem = ({ item }) => (
+    <View style={styles.card}>
+      <Image source={{ uri: item.image }} style={styles.image} />
+      <Text style={styles.title}>{item.name}</Text>
+      <Text>{item.category}</Text>
+      <View style={styles.buttons}>
+        <Button title="RSVP" onPress={() => RSVP(item)} />
+        <Button title="Save to Calendar" onPress={() => addToCalendar(item)} />
+      </View>
+    </View>
+  );
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.heading}>Event Listings</Text>
+      <View style={styles.filters}>
+        {['All', 'Music', 'Tech'].map(cat => (
+          <TouchableOpacity key={cat} onPress={() => setFilter(cat)}>
+            <Text style={styles.filterBtn}>{cat}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+      <FlatList
+        data={events}
+        keyExtractor={(item) => item.id}
+        renderItem={renderItem}
+      />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, padding: 10 },
+  heading: { fontSize: 24, fontWeight: 'bold', marginBottom: 10 },
+  filters: { flexDirection: 'row', marginBottom: 10 },
+  filterBtn: { marginRight: 10, color: 'blue' },
+  card: { marginBottom: 15, backgroundColor: '#f0f0f0', padding: 10, borderRadius: 8 },
+  image: { width: '100%', height: 150, borderRadius: 8 },
+  title: { fontSize: 18, fontWeight: 'bold' },
+  buttons: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 5 }
+});
+
+
